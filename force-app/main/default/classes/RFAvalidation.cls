@@ -1,6 +1,11 @@
 public with sharing class RFAvalidation {
     @AuraEnabled
-    public static List<Agreement_Parcel__c> getAllRelatedParcels(Id RFAId){
-        return [SELECT Id, Parcel_ID_Local__c, Deed_Acres__c, GIS_Acres__c , County__c, State__c  FROM Agreement_Parcel__c WHERE Request_for_Agreement__c  = :RFAId];
+    public static List<Request_For_Agreement__c> getAllRelatedParcels(Id RFAId){
+        return [SELECT Grantee_Name__c, Lease_Version_Document_Name__c, Spouse_Information__c, Land_Owner_Information__c, 
+        Title_Clear__c, Title_Issues_Comments__c, Agreement_Type__c, Signing_Authority_Documents_Obtained__c, Comments_for_Title_Doc_Prep__c, 
+        Acreage_Being_Signed__c,
+        (SELECT Id, Parcel_ID_Local__c, Deed_Acres__c, GIS_Acres__c, County__c, State__c FROM Agreement_Parcels__r)
+        FROM Request_for_Agreement__c
+        WHERE Id = :RFAId];
     }
 }

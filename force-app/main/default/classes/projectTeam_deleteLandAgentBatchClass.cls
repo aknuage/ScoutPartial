@@ -11,27 +11,10 @@ public with sharing class projectTeam_deleteLandAgentBatchClass implements Datab
         return projectTeams;
     }
     public void execute(Database.BatchableContext info, List<Project_Team__c> projectTeamRecords) {
-        // Project__share projectShare = new Project__share(
-                //     AccessLevel = 'Edit',
-                //     ParentId = pt.Project__c,
-                //     RowCause = 'Project_Team_Member_access__c',
-                //     UserOrGroupId = pt.User__c
-                // );
         List<Project__share> deleteProjectShareRecords = [SELECT Id, ParentId FROM Project__share WHERE ParentId =: projectTeamRecords[0].Project__c AND UserOrGroupId = :projectTeamRecords[0].User__c];
 
         if(deleteProjectShareRecords.size() > 0) delete deleteProjectShareRecords;
-
-        // AccountShare share = new AccountShare(
-        //         AccountId = ap.Account__c,
-        //         AccountAccessLevel = 'Read',
-        //         RowCause = 'Manual',
-        //         UserOrGroupId = userId,
-        //         OpportunityAccessLevel = 'None',
-        //         CaseAccessLevel = 'None'
-        //     );
-
-        //     accountShareRecords.add(share);
-
+        System.debug('deleted proj shares: ' + deleteProjectShareRecords.size());
         List<Account_Project__c> accountProjects = [SELECT Id, Account__c, Project__c FROM Account_Project__c WHERE Project__c = :projectTeamRecords[0].Project__c];
 
         Set<Id> AccountIds = new Set<Id>();
@@ -39,8 +22,12 @@ public with sharing class projectTeam_deleteLandAgentBatchClass implements Datab
             AccountIds.add(ap.Id);
         }
 
-        List<AccountShare> accountShares = [SELECT Id FROM AccountShare WHERE AccountId IN :AccountIds AND UserOrGroupId = :projectTeamRecords[0].User__c];
+        List<AccountTeamMember> teamMembersToDelete = [SELECT Id FROM AccountTeamMember WHERE AccountId IN :AccountIds AND UserId = :projectTeamRecords[0].User__c];
+        
+        if (!teamMembersToDelete.isEmpty()) delete teamMembersToDelete;
+        System.debug('deleted: ' + teamMembersToDelete.size());
 
+        List<AccountShare> accountShares = [SELECT Id FROM AccountShare WHERE AccountId IN :AccountIds AND UserOrGroupId = :projectTeamRecords[0].User__c];
         if(accountShares.size() > 0) delete accountShares;
         
     }

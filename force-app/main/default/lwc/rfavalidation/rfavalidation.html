@@ -1,5 +1,8 @@
 <template>
     <div class="slds-p-bottom_x-large">
+        <template lwc:if={isLoading}>
+            <lightning-spinner size="x-small"></lightning-spinner>
+        </template>
         <lightning-button class="hidden slds-float_left slds-p-right_medium" onclick={startDocumentGeneration} label="Build RFA Summary"></lightning-button>
         <a href={downloadURL} download={filename} class="slds-hide slds-button slds-button_brand slds-float_left" >Download Document</a>         
     </div>

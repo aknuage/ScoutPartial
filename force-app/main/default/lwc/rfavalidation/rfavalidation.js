@@ -1,7 +1,7 @@
 import { LightningElement, api, wire} from 'lwc';
-import { getRecord, getFieldValue } from "lightning/uiRecordApi";
-import {loadScript} from "lightning/platformResourceLoader";
 import docxImport from "@salesforce/resourceUrl/docx";
+import {loadScript} from "lightning/platformResourceLoader";
+import { ShowToastEvent } from "lightning/platformShowToastEvent";
 import grabRFAParcels from "@salesforce/apex/RFAvalidation.getAllRelatedParcels";
 
 const FIELDS = ['Request_for_Agreement__c.Grantee_Name__c', 'Request_for_Agreement__c.Lease_Version_Document_Name__c',
@@ -36,31 +36,6 @@ export default class Rfavalidation extends LightningElement {
 	left: {style: "none", size: 0, color: "FFFFFF"},
 	right: {style: "none", size: 0, color: "FFFFFF"}};
 
-    @wire(getRecord, {
-        recordId: '$recordId',
-        fields:FIELDS
-      })
-      RFA({error, data}){
-        if (error){
-            console.log('Error Occered in @Wire-->'+error.body.message);
-        } else if (data){
-       this.getGname = data.fields.Grantee_Name__c.value??'';
-       this.getLeaseVersion = data.fields.Lease_Version_Document_Name__c.value??'';
-       this.getSpouse= data.fields.Spouse_Information__c.value??'';
-       this.getLandOwnerInfo= data.fields.Land_Owner_Information__c.value??'';
-       this.getTitleClear= data.fields.Title_Clear__c.value??'';
-       this.getTitleIssues= data.fields.Title_Issues_Comments__c.value??'';
-       this.getSigning= data.fields.Signing_Authority_Documents_Obtained__c.value??'';
-       this.getCommentsPrep = data.fields.Comments_for_Title_Doc_Prep__c??'';
-       this.getAgreementType= data.fields.Agreement_Type__c.value??'';
-       this.getTotalAcreage = data.fields.Acreage_Being_Signed__c??'';
-       
-       this.filename = "RFA Summary - " + this.getGname + " " + this.getLeaseVersion+".docx";
-        console.log('hi');
-        
-        }
-      }
-
     connectedCallback(){
         Promise.all([loadScript(this, docxImport)]).then(() =>{
             this.renderButtons();
@@ -71,15 +46,48 @@ export default class Rfavalidation extends LightningElement {
         this.template.querySelector(".hidden").classList.add("not_hidden");
         this.template.querySelector(".hidden").classList.remove("hidden");
     }
-
-    startDocumentGeneration(){
+    isLoading;
+    async startDocumentGeneration(){
         console.log('Starting doc');
        // this.buildDocument();
-        
-       grabRFAParcels({'RFAId': this.recordId}).then(rfaparcels=>{
-            this.buildDocument(rfaparcels);
+        this.isLoading = true;
+       try {
+           const rfaList = await grabRFAParcels({'RFAId': this.recordId});
+           if (rfaList.length === 0){
+               this.showToastRfaError(); // exit if somehow no records were returned
+               return;
+           }
+           const rfa = rfaList[0];
+           console.log('RFA Parcels ==>', JSON.stringify(rfa, null, '\t'));
+           this.getGname = rfa.Grantee_Name__c??'';
+           this.getLeaseVersion = rfa.Lease_Version_Document_Name__c??'';
+           this.getSpouse= rfa.Spouse_Information__c??'';
+           this.getLandOwnerInfo= rfa.Land_Owner_Information__c??'';
+           this.getTitleClear= rfa.Title_Clear__c??'';
+           this.getTitleIssues= rfa.Title_Issues_Comments__c??'';
+           this.getSigning= rfa.Signing_Authority_Documents_Obtained__c??'';
+           this.getCommentsPrep = rfa.Comments_for_Title_Doc_Prep__c??'';
+           this.getAgreementType= rfa.Agreement_Type__c??'';
+           this.getTotalAcreage = rfa.Acreage_Being_Signed__c??'';
+           
+           this.filename = "RFA Summary - " + this.getGname + " " + this.getLeaseVersion+".docx";
+           this.buildDocument(rfa.Agreement_Parcels__r);
+       } catch (error) {
+            console.error(error);
+       } finally {
+            this.isLoading = false;
+       }
+    }
+
+    showToastRfaError() {
+        const event = new ShowToastEvent({
+            title: 'Error Generating RFA Document',
+            variant: 'error',
+            mode: 'dismissable',
+            message:
+                'Null RFA returned.',
         });
-        
+        this.dispatchEvent(event);
     }
 
     buildDocument(RFAParcelsPassed){
@@ -138,9 +146,7 @@ export default class Rfavalidation extends LightningElement {
         
 
         //tempBodyLine = this.generateText("Hero");
-        
         //console.log("tempbodyLine: " + tempBodyLine);
-
         //createBody.push(this.tempBodyLine);
         console.log("tablecell: " + tableCells);
        
@@ -196,7 +202,7 @@ export default class Rfavalidation extends LightningElement {
                     borders: this._no_border
                 }),
                 new docx.TableCell({
-                    children: [new docx.Paragraph({children: [this.generateTextRun(rfaParcelRecord["Parcel_ID_Local__c"].toString())]})],
+                    children: [new docx.Paragraph({children: [this.generateTextRun(rfaParcelRecord["Parcel_ID_Local__c"]?.toString())]})],
                     borders: this._no_border
                 })
             ]
@@ -210,7 +216,7 @@ export default class Rfavalidation extends LightningElement {
                     borders: this._no_border
                 }),
                 new docx.TableCell({
-                    children: [new docx.Paragraph({children: [this.generateTextRun(rfaParcelRecord["Deed_Acres__c"].toString())]})],
+                    children: [new docx.Paragraph({children: [this.generateTextRun(rfaParcelRecord["Deed_Acres__c"]?.toString())]})],
                     borders: this._no_border
                 })
             ]
@@ -224,7 +230,7 @@ export default class Rfavalidation extends LightningElement {
                     borders: this._no_border
                 }),
                 new docx.TableCell({
-                    children: [new docx.Paragraph({children: [this.generateTextRun(rfaParcelRecord["GIS_Acres__c"].toString())]})],
+                    children: [new docx.Paragraph({children: [this.generateTextRun(rfaParcelRecord["GIS_Acres__c"]?.toString())]})],
                     borders: this._no_border
                 })
             ]
@@ -239,7 +245,7 @@ export default class Rfavalidation extends LightningElement {
                     borders: this._no_border
                 }),
                 new docx.TableCell({
-                    children: [new docx.Paragraph({children: [this.generateTextRun(rfaParcelRecord["County__c"].toString())]})],
+                    children: [new docx.Paragraph({children: [this.generateTextRun(rfaParcelRecord["County__c"]?.toString())]})],
                     borders: this._no_border
                 })
             ]
@@ -254,7 +260,7 @@ export default class Rfavalidation extends LightningElement {
                     borders: this._no_border
                 }),
                 new docx.TableCell({
-                    children: [new docx.Paragraph({children: [this.generateTextRun(rfaParcelRecord["State__c"].toString())]})],
+                    children: [new docx.Paragraph({children: [this.generateTextRun(rfaParcelRecord["State__c"]?.toString())]})],
                     borders: this._no_border
                 })
             ]
@@ -377,7 +383,7 @@ export default class Rfavalidation extends LightningElement {
     generateDownloadLink(documentPassed){
         docx.Packer.toBase64String(documentPassed).then(textBlob =>{
             this.downloadURL = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + textBlob;
-            this.template.querySelector(".slds-hide").classList.remove("slds-hide");
+            this.template.querySelector(".slds-hide")?.classList.remove("slds-hide");
         });
     }
 }
