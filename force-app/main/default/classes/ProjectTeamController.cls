@@ -6,6 +6,8 @@
  * @last modified by  : NuAge - JP
 **/
 public with sharing class ProjectTeamController {
+    static final List<String> EXTERNAL_PROFILES = new List<String> {'Land Agent', 'External Project Team User'};
+
     public static void projectTeam_insert(List<Project_Team__c> projectTeams){
         Set<Id> userIds = new Set<Id>();
         for(Project_Team__c pt: projectTeams){
@@ -25,7 +27,6 @@ public with sharing class ProjectTeamController {
         List<Project_Team__c> landAgentProjectTeams = new List<Project_Team__c>();
 
         for(Project_Team__c pt: projectTeams){
-            System.debug('pt role: ' + pt.Role__c);
             if(pt.Role__c == 'Primary Developer'){
                 Project__c project = new Project__c(Id = pt.Project__c, Primary_Developer__c = pt.User__c, Primary_Developer_is_set__c = true);
                 projects.add(project);
@@ -35,20 +36,22 @@ public with sharing class ProjectTeamController {
             } else if(pt.Role__c == 'Director Lead'){
                 Project__c project = new Project__c(Id = pt.Project__c, Director_Lead__c = pt.User__c,Primary_Developer_is_set__c = true);
                 projects.add(project);
-            } else if(pt.Role__c == 'Land Agent'){
+            } else if(pt.Role__c == 'Land Agent' && userToProfile.get(pt.User__c) == 'Land Agent'){
+                // Project Team role 
+                System.debug('Land agent added to project team: ' + pt.Name);
                 landAgentProjectTeams.add(pt);        
                 Project__c project = new Project__c(
                     Id = pt.Project__c, External_Doc_Prep_is_set__c = true
                 );
                 projects.add(project);
-            } else if(pt.Role__c == 'External Doc Prep'){
+            } else if(pt.Role__c == 'External Doc Prep' && EXTERNAL_PROFILES.contains(userToProfile.get(pt.User__c))){
                 Project__c project = new Project__c(
                     Id = pt.Project__c,
                     External_Doc_Prep_is_set__c = true
                 );
                 projects.add(project);
                 externalProjectTeams.add(pt);
-            } else if(pt.Role__c == 'External Title Specialist'){
+            } else if(pt.Role__c == 'External Title Specialist' && EXTERNAL_PROFILES.contains(userToProfile.get(pt.User__c))){
                 Project__c project = new Project__c(
                     Id = pt.Project__c,
                     External_Title_Specialist_is_set__c = true
@@ -57,10 +60,10 @@ public with sharing class ProjectTeamController {
                 externalProjectTeams.add(pt);
             }
         }
-
+        
         update projects;
 
-        // deleteExternal
+        // insertExternal
         if(externalProjectTeams.size() > 0) shareExternal(externalProjectTeams, userToProfile);
         if(landAgentProjectTeams.size() > 0){
             projectTeam_insertLandAgentBatchClass gdfc = new projectTeam_insertLandAgentBatchClass();
@@ -74,27 +77,27 @@ public with sharing class ProjectTeamController {
         List<Project__share> projectShareRecords = new List<Project__share>();
         Set<Id> projectIds = new Set<Id>();
         List<Project_Team__c> projectTeamRecords = new List<Project_Team__c>();
-
+        System.debug('projectTeamRecords.size(): ' + projectTeams.size());
+        
+        System.debug('user: ' + [SELECT Name FROM User WHERE Id = :projectTeams[0].User__c]);
+        
         for(Project_Team__c pt: projectTeams){
-            if(userToProfile.get(pt.User__c) == 'External Project Team User')
-                {
-                
-                Project__share projectShare = new Project__share(
-                    AccessLevel = 'Edit',
-                    ParentId = pt.Project__c,
-                    RowCause = 'Project_Team_Member_access__c',
-                    UserOrGroupId = pt.User__c
-                );
-                projectShareRecords.add(projectShare);
+            Project__share projectShare = new Project__share(
+                AccessLevel = 'Edit',
+                ParentId = pt.Project__c,
+                RowCause = 'Project_Team_Member_access__c',
+                UserOrGroupId = pt.User__c
+            );
+            projectShareRecords.add(projectShare);
 
-                projectIds.add(pt.Project__c);
-                projectTeamRecords.add(pt);
+            projectIds.add(pt.Project__c);
+            projectTeamRecords.add(pt);
 
-                projectTeam_createBatchClass gdfc = new projectTeam_createBatchClass();
-                gdfc.projectId = pt.Project__c;
-                gdfc.userId = pt.User__c;
-                Database.executeBatch(gdfc, 25);
-            }
+            projectTeam_createBatchClass gdfc = new projectTeam_createBatchClass();
+            gdfc.projectId = pt.Project__c;
+            gdfc.userId = pt.User__c;
+            Database.executeBatch(gdfc, 25);
+
             if (Test.isRunningTest()) {
                 for (Project__Share share : projectShareRecords) {
                     share.Id = null; // Ensure no Id is set
@@ -158,10 +161,11 @@ public with sharing class ProjectTeamController {
             } else if(pt.Role__c == 'Director Lead'){
                 Project__c project = new Project__c(Id = pt.Project__c,Director_Lead__c = '',Primary_Developer_is_set__c = false);
                 projects.add(project);
-            } else if(pt.Role__c == 'Land Agent'){
+            } else if(pt.Role__c == 'Land Agent' && userToProfile.get(pt.User__c) == 'Land Agent'){
                 Project__c project = new Project__c(Id = pt.Project__c, External_Title_Specialist_is_set__c = false);
                 projects.add(project);
                 landAgentProjectTeams.add(pt);
+                System.debug('land agent project team: ' + JSON.serializePretty(landAgentProjectTeams));
                 // Delete project share records here - I need to batch these out
                 // Project__share projectShare = new Project__share(
                 //     AccessLevel = 'Edit',
@@ -172,7 +176,7 @@ public with sharing class ProjectTeamController {
 
                 // projectShareRecords.add(projectShare);                
             } 
-            else if(pt.Role__c == 'External Doc Prep'){
+            else if(pt.Role__c == 'External Doc Prep' && EXTERNAL_PROFILES.contains(userToProfile.get(pt.User__c))){
                 Project__c project = new Project__c(
                     Id = pt.Project__c,
                     External_Doc_Prep_is_set__c = false
@@ -181,9 +185,9 @@ public with sharing class ProjectTeamController {
 
                 externalProjectTeams.add(pt);
 
-                // deleteExternal();
-            } else if(pt.Role__c == 'External Title Specialist'){
-                Project__c project = new Project__c(
+            } // deleteExternal();
+            else if(pt.Role__c == 'External Title Specialist' && EXTERNAL_PROFILES.contains(userToProfile.get(pt.User__c))){
+                    Project__c project = new Project__c(
                     Id = pt.Project__c,
                     External_Title_Specialist_is_set__c = false
                 );
@@ -217,19 +221,13 @@ public with sharing class ProjectTeamController {
         Set<Id> userIds = new Set<Id>();
 
         for(Project_Team__c pt: projectTeams){
-            // if(userToProfile.get(pt.User__c) != 'System Administrator' || userToProfile.get(pt.User__c) != 'Scout Team' || userToProfile.get(pt.User__c) != 'Corporate User'){
-            if(
-                userToProfile.get(pt.User__c) == 'External Project Team User'
-            )
-            {
-                projectId.add(pt.Project__c);
-                userIds.add(pt.User__c);
+            projectId.add(pt.Project__c);
+            userIds.add(pt.User__c);
 
-                projectTeam_deleteBatchClass gdfc = new projectTeam_deleteBatchClass();
-                gdfc.projectId = pt.Project__c;
-                gdfc.userId = pt.User__c;
-                Database.executeBatch(gdfc, 25);
-            }
+            projectTeam_deleteBatchClass gdfc = new projectTeam_deleteBatchClass();
+            gdfc.projectId = pt.Project__c;
+            gdfc.userId = pt.User__c;
+            Database.executeBatch(gdfc, 25);
         }
 
         // List<Project__share> projectShares =[SELECT Id, UserOrGroupId, ParentId FROM  Project__share WHERE UserOrGroupId IN: userIds AND ParentId IN: projectId];
@@ -307,17 +305,17 @@ public with sharing class ProjectTeamController {
                 Project__c project = new Project__c(Id = pt.Project__c, Director_Lead__c = pt.User__c, Primary_Developer_is_set__c = true);
                 deleteProjectTeams.add(oldMap.get(pt.Id));
                 projects.add(project);
-            } else if(pt.Role__c == 'Land Agent'){
+            } else if(pt.Role__c == 'Land Agent' && userToProfile.get(pt.User__c) == 'Land Agent'){
                 Project__c project = new Project__c(Id = pt.Project__c,External_Title_Specialist_is_set__c = true);
                 deleteProjectTeams.add(oldMap.get(pt.Id));
                 projects.add(project);
                 landAgentProjectTeams.add(pt);             
-            } else if(pt.Role__c == 'External Doc Prep'){
+            } else if(pt.Role__c == 'External Doc Prep' && EXTERNAL_PROFILES.contains(userToProfile.get(pt.User__c))){
                 Project__c project = new Project__c(Id = pt.Project__c,External_Doc_Prep_is_set__c = true);
                 deleteProjectTeams.add(oldMap.get(pt.Id));
                 projects.add(project);
                 externalProjectTeams.add(pt);
-            } else if(pt.Role__c == 'External Title Specialist'){
+            } else if(pt.Role__c == 'External Title Specialist' && EXTERNAL_PROFILES.contains(userToProfile.get(pt.User__c))){
                 Project__c project = new Project__c(Id = pt.Project__c,External_Title_Specialist_is_set__c = true);
                 deleteProjectTeams.add(oldMap.get(pt.Id));
                 projects.add(project);

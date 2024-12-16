@@ -3,7 +3,9 @@
         <template lwc:if={isLoading}>
             <lightning-spinner size="x-small"></lightning-spinner>
         </template>
-        <lightning-button class="hidden slds-float_left slds-p-right_medium" onclick={startDocumentGeneration} label="Build RFA Summary"></lightning-button>
+        <lightning-button class="hidden slds-float_left slds-p-right_medium" onclick={startDocumentGeneration} label="Download RFA Summary"></lightning-button>
+        <!-- // AK - comment back in for 2 click process
         <a href={downloadURL} download={filename} class="slds-hide slds-button slds-button_brand slds-float_left" >Download Document</a>         
+        -->
     </div>
 </template>

@@ -27,6 +27,7 @@ public with sharing class projectTeam_createBatchClass implements Database.Batch
 
             accountShareRecords.add(share);
         }
+        System.debug('createBatchClass created num AccountShares: ' + accountShareRecords.size());
 
         if(accountShareRecords.size() > 0) insert accountShareRecords;
     }

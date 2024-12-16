@@ -4,21 +4,13 @@ import {loadScript} from "lightning/platformResourceLoader";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
 import grabRFAParcels from "@salesforce/apex/RFAvalidation.getAllRelatedParcels";
 
-const FIELDS = ['Request_for_Agreement__c.Grantee_Name__c', 'Request_for_Agreement__c.Lease_Version_Document_Name__c',
-    'Request_for_Agreement__c.Spouse_Information__c','Request_for_Agreement__c.Land_Owner_Information__c',
-    'Request_for_Agreement__c.Title_Clear__c','Request_for_Agreement__c.Title_Issues_Comments__c',
-    'Request_for_Agreement__c.Agreement_Type__c',
-    'Request_for_Agreement__c.Signing_Authority_Documents_Obtained__c',
-    'Request_for_Agreement__c.Comments_for_Title_Doc_Prep__c',
-    'Request_for_Agreement__c.Acreage_Being_Signed__c']
-
-
 export default class Rfavalidation extends LightningElement {
 
     @api recordId;
     downloadURL;
     filename;
     getGname;
+    getName;
     getLeaseVersion;
     getSpouse;
     getLandOwnerInfo;
@@ -46,19 +38,20 @@ export default class Rfavalidation extends LightningElement {
         this.template.querySelector(".hidden").classList.add("not_hidden");
         this.template.querySelector(".hidden").classList.remove("hidden");
     }
+
     isLoading;
     async startDocumentGeneration(){
         console.log('Starting doc');
        // this.buildDocument();
         this.isLoading = true;
        try {
-           const rfaList = await grabRFAParcels({'RFAId': this.recordId});
-           if (rfaList.length === 0){
+           const rfa = await grabRFAParcels({'RFAId': this.recordId});
+           if (rfa === null){
                this.showToastRfaError(); // exit if somehow no records were returned
                return;
            }
-           const rfa = rfaList[0];
            console.log('RFA Parcels ==>', JSON.stringify(rfa, null, '\t'));
+           this.getName = rfa.Name??'';
            this.getGname = rfa.Grantee_Name__c??'';
            this.getLeaseVersion = rfa.Lease_Version_Document_Name__c??'';
            this.getSpouse= rfa.Spouse_Information__c??'';
@@ -70,7 +63,7 @@ export default class Rfavalidation extends LightningElement {
            this.getAgreementType= rfa.Agreement_Type__c??'';
            this.getTotalAcreage = rfa.Acreage_Being_Signed__c??'';
            
-           this.filename = "RFA Summary - " + this.getGname + " " + this.getLeaseVersion+".docx";
+           this.filename = "RFA Summary - " + this.getName + " " + this.getLeaseVersion+".docx";
            this.buildDocument(rfa.Agreement_Parcels__r);
        } catch (error) {
             console.error(error);
@@ -91,21 +84,10 @@ export default class Rfavalidation extends LightningElement {
     }
 
     buildDocument(RFAParcelsPassed){
-        console.log('Starting build with ' );
         let document = new docx.Document();
         let tableCells = [];
-        let tempBodyLine;
-        let createBody=[];
-        //tableCells.push(this.generateHeaderRow());
-       // let gnamestring = getFieldValue(data, Request_for_Agreement__c.Grantee_Name__c);
-     console.log('lost guy: ' + this.getGname);
-
-       
         
-        
-        console.log('Gname: ' );
-        
-        tableCells.push(this.generateRow("Project Name:  ", this.getGname));
+        tableCells.push(this.generateRow("Project Name:  ", this.getName));
         tableCells.push(this.generateRow("  ", "   "));
          
         tableCells.push(this.generateRow("Form:  ", this.getLeaseVersion));
@@ -121,40 +103,29 @@ export default class Rfavalidation extends LightningElement {
         tableCells.push(this.generateRow("  ", "   "));
         tableCells.push(this.generateRow("Signing authority docs obtained?  ", this.getSigning));
         tableCells.push(this.generateRow("  ", "   "));
-        tableCells.push(this.generateRow("Title Clear?  ", this.getTitleClear));
-        tableCells.push(this.generateRow("Title Issues Comments:  ", this.getTitleIssues));
-        tableCells.push(this.generateRow("  ", "   "));
-        tableCells.push(this.generateRow("  ", "   "));
         tableCells.push(this.generateRow("Comments for Title & Doc Prep:  ", this.getCommentsPrep));
         tableCells.push(this.generateRow("  ", "   "));
         tableCells.push(this.generateRow("  ", "   "));
-        tableCells.push(this.generateRow("Total Acreage:  ", this.getTotalAcreage));
+        tableCells.push(this.generateRow("Total Acreage:  ", this.getTotalAcreage.toString()));
         tableCells.push(this.generateRow("  ", "   "));
         tableCells.push(this.generateRow("Detail Parcel Information", "   "));
         
-
-        RFAParcelsPassed.forEach(rfaparcelsRecord => {
-            tableCells.push(this.generateParcelRow(rfaparcelsRecord, 1));
-            tableCells.push(this.generateParcelRow(rfaparcelsRecord, 2));
-            tableCells.push(this.generateParcelRow(rfaparcelsRecord, 3));
-            tableCells.push(this.generateParcelRow(rfaparcelsRecord, 4));
-            tableCells.push(this.generateParcelRow(rfaparcelsRecord, 5));
-            tableCells.push(this.generateRow("  ", "   "));
-            tableCells.push(this.generateRow("  ", "   "));
-            tableCells.push(this.generateRow("  ", "   "));
-        });
+        if (RFAParcelsPassed.length > 0) {
+            RFAParcelsPassed.forEach(rfaparcelsRecord => {
+                tableCells.push(this.generateParcelRow(rfaparcelsRecord, 1));
+                tableCells.push(this.generateParcelRow(rfaparcelsRecord, 2));
+                tableCells.push(this.generateParcelRow(rfaparcelsRecord, 3));
+                tableCells.push(this.generateParcelRow(rfaparcelsRecord, 4));
+                tableCells.push(this.generateParcelRow(rfaparcelsRecord, 5));
+                tableCells.push(this.generateRow("  ", "   "));
+                tableCells.push(this.generateRow("  ", "   "));
+            });
+        }
         
-
-        //tempBodyLine = this.generateText("Hero");
-        //console.log("tempbodyLine: " + tempBodyLine);
-        //createBody.push(this.tempBodyLine);
-        console.log("tablecell: " + tableCells);
-       
+        tableCells.push(this.generateRow("Title Clear?  ", this.getTitleClear));
+        tableCells.push(this.generateRow("Title Issues Comments:  ", this.getTitleIssues));
+               
         this.generateTable(document, tableCells);
-
-        //let yoho = this.generateTextRun("Yo HO HO");
-       // console.log('yoho: ' + yoho);
-        
 
         this.generateDownloadLink(document);
     }
@@ -376,14 +347,29 @@ export default class Rfavalidation extends LightningElement {
         });
         */
     }
-
-  
-
-
+    // AK: Comment back in if we want two button approach
+    /*
     generateDownloadLink(documentPassed){
         docx.Packer.toBase64String(documentPassed).then(textBlob =>{
             this.downloadURL = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + textBlob;
             this.template.querySelector(".slds-hide")?.classList.remove("slds-hide");
         });
+    }
+    */
+
+    generateDownloadLink(documentPassed) {
+        docx.Packer.toBase64String(documentPassed).then(base64String => {
+            this.downloadURL = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64String}`;
+            this.triggerDownload(this.downloadURL, this.filename);
+        });
+    }
+
+    triggerDownload(url, filename) {
+        let downloadLink = document.createElement('a');
+        document.body.appendChild(downloadLink);
+        downloadLink.href = url;
+        downloadLink.download = filename;
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
     }
 }

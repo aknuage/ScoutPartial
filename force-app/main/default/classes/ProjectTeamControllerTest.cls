@@ -10,10 +10,10 @@ public with sharing class ProjectTeamControllerTest {
     @TestSetup
     static void makeData(){
             Project__c project = new Project__c(
-                        Project_Technology_Type__c = 'Solar',
-                        Name = 'Jennifers Test Project'
-                    );
-                    insert project;
+                    Project_Technology_Type__c = 'Solar',
+                    Name = 'Jennifers Test Project'
+            );
+            insert project;
             system.debug(project.Id);
 
             Project__c project2 = new Project__c(
@@ -255,5 +255,116 @@ public with sharing class ProjectTeamControllerTest {
         // Assert that the update worked as expected
         List<Project__c> updatedProjects = [SELECT Id, Secondary_Developer__c FROM Project__c WHERE Name = 'Jennifers Test Project'];
         //System.assertNotEquals(null, updatedProjects[0].Secondary_Developer__c, 'Secondary Developer should be set');
+    }
+
+
+    @isTest
+    static void testInsertLandAgentBatchClass() {
+        // Create necessary test data
+        Account testAccount = new Account(Name = 'Test Account');
+        insert testAccount;
+        
+        Project__c testProject = new Project__c(Name = 'Test Project');
+        insert testProject;
+
+        User landAgentUser = createUser('Land Agent');
+        insert landAgentUser;
+
+        Project_Team__c testProjectTeam = new Project_Team__c(
+            Project__c = testProject.Id,
+            User__c = landAgentUser.Id,
+            Role__c = 'Land Agent'
+        );
+        insert testProjectTeam;
+
+        // Create Account_Project__c for relationship
+        Account_Project__c accountProject = new Account_Project__c(
+            Account__c = testAccount.Id,
+            Project__c = testProject.Id
+        );
+        insert accountProject;
+    
+        List<Project_Team__c> projectTeams = [SELECT Id, User__c, Project__c FROM Project_Team__c WHERE Role__c = 'Land Agent'];
+        Test.startTest();
+        projectTeam_insertLandAgentBatchClass batchClass = new projectTeam_insertLandAgentBatchClass();
+        batchClass.projectTeams = projectTeams;
+        Database.executeBatch(batchClass, 1);
+        Test.stopTest();
+        
+        // Verify that Project__Share records are created
+        List<Project__share> shares = [SELECT Id FROM Project__share WHERE ParentId = :projectTeams[0].Project__c AND UserOrGroupId = :projectTeams[0].User__c];
+        System.assertEquals(1, shares.size(), 'A project share record should be created.');
+
+        // Verify that AccountTeamMember records are created
+        List<AccountTeamMember> teamMembers = [SELECT Id FROM AccountTeamMember WHERE UserId = :projectTeams[0].User__c];
+        System.assertNotEquals(0, teamMembers.size(), 'Account team member records should be created.');
+    }
+
+    @isTest
+    static void testDeleteLandAgentBatchClass() {
+        // Create necessary test data
+        Account testAccount = new Account(Name = 'Test Account');
+        insert testAccount;
+        
+        Project__c testProject = new Project__c(Name = 'Test Project');
+        insert testProject;
+
+        User landAgentUser = createUser('Land Agent');
+        insert landAgentUser;
+
+        Project_Team__c testProjectTeam = new Project_Team__c(
+            Project__c = testProject.Id,
+            User__c = landAgentUser.Id,
+            Role__c = 'Land Agent'
+        );
+        insert testProjectTeam;
+
+        // Create Account_Project__c for relationship
+        Account_Project__c accountProject = new Account_Project__c(
+            Account__c = testAccount.Id,
+            Project__c = testProject.Id
+        );
+        insert accountProject;
+    
+        List<Project_Team__c> projectTeams = [SELECT Id, Project__c, User__c FROM Project_Team__c WHERE Role__c = 'Land Agent'];
+        Id projUserId = projectTeams[0].User__c;
+        Id projId = projectTeams[0].Project__c;
+        List<Project__share> initialShares = [SELECT Id FROM Project__share WHERE ParentId = :projUserId];
+        insert initialShares;
+        
+        List<AccountTeamMember> initialTeamMembers = [SELECT Id FROM AccountTeamMember WHERE UserId = :projUserId];
+        insert initialTeamMembers;
+
+        Test.startTest();
+        projectTeam_deleteLandAgentBatchClass batchClass = new projectTeam_deleteLandAgentBatchClass();
+        batchClass.projectTeams = projectTeams;
+        Database.executeBatch(batchClass, 1);
+        Test.stopTest();
+        
+        // Verify that Project__Share records are deleted
+        List<Project__share> shares = [SELECT Id FROM Project__share WHERE ParentId = :projId AND UserOrGroupId = :projUserId];
+        System.assertEquals(0, shares.size(), 'All project share records should be deleted.');
+
+        // Verify that AccountTeamMember records are deleted
+        List<AccountTeamMember> teamMembers = [SELECT Id FROM AccountTeamMember WHERE UserId = :projUserId];
+        System.assertEquals(0, teamMembers.size(), 'All account team member records should be deleted.');
+    }
+
+
+
+    static User createUser(String profileName) {
+        Profile p = [SELECT Id FROM Profile WHERE Name = :profileName LIMIT 1];
+        return new User(
+            Username = 'testuser' + Math.random() + '@test.com',
+            Email = 'testuser@test.com',
+            FirstName = 'Test',
+            LastName = 'User',
+            ProfileId = p.Id,
+            Alias = 'tuser',
+            TimeZoneSidKey = 'GMT',
+            LocaleSidKey = 'en_US',
+            EmailEncodingKey = 'UTF-8',
+            LanguageLocaleKey = 'en_US'
+        );
     }
 }

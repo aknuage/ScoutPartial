@@ -23,32 +23,72 @@
 private class RFAvalidationTest {
 
     @isTest
-    static void myUnitTest() {
+    static void testRetrieveRFAData_Success() {
         // TO DO: implement unit test
-       
-Project__c proj = new Project__c(Name = 'DCprojSeven');
-insert proj;
 
-Account acc = new Account(Name = 'DCaccountSeven', RecordTypeId ='0124W000000y85qQAA', Project_Required__c=proj.id);
-insert acc;
+        Project__c proj = new Project__c(Name = 'DCprojSeven');
+        insert proj;
 
-Project_Team__c ProjTeam = new Project_Team__c(Project__c=proj.id, Role__c='External Title Specialist', 
-User__c ='0054W00000EeireQAB');
-insert ProjTeam;
+        Account acc = new Account(Name = 'DCaccountSeven', RecordTypeId = '0124W000000y85qQAA', Project_Required__c = proj.id);
+        insert acc;
 
-Request_for_Agreement__c rfa = new Request_for_Agreement__c(Name = 'DCrfaSeven', Account__c = acc.id,
-Project_Name__c = proj.id, Agreement_Type__c ='Wind Energy Lease and Easement Agreement');
-insert rfa;
+        Project_Team__c ProjTeam = new Project_Team__c(Project__c = proj.id, Role__c = 'External Title Specialist',
+            User__c = '0054W00000EeireQAB');
+        insert ProjTeam;
 
-Parcel__c parcelrec  = new Parcel__c (Name = '0999x', Account__c = acc.id, Parcel_ID_Local__c = 'ID0999x', Acres_Deed__c =13,Acres_GIS__c=17,State_Province__c='CO',County__c='Springfield');
-insert parcelrec;
+        Request_for_Agreement__c rfa = new Request_for_Agreement__c(Name = 'DCrfaSeven', Account__c = acc.id,
+            Project_Name__c = proj.id, Agreement_Type__c = 'Wind Energy Lease and Easement Agreement');
+        insert rfa;
 
-Agreement_Parcel__c agreeParcel= new Agreement_Parcel__c (Parcel__c = parcelrec.id, Request_for_Agreement__c=rfa.id);
-insert agreeParcel;
+        Parcel__c parcelrec = new Parcel__c(Name = '0999x', Account__c = acc.id, Parcel_ID_Local__c = 'ID0999x', Acres_Deed__c = 13, Acres_GIS__c = 17, State_Province__c = 'CO', County__c = 'Springfield');
+        insert parcelrec;
 
-Test.startTest();
-RFAvalidation.getAllRelatedParcels(rfa.id);
-Test.stopTest();
+        Agreement_Parcel__c agreeParcel = new Agreement_Parcel__c(Parcel__c = parcelrec.id, Request_for_Agreement__c = rfa.id);
+        insert agreeParcel;
+
+        Test.startTest();
+        Request_For_Agreement__c result = RFAvalidation.getAllRelatedParcels(rfa.id);
+        Test.stopTest();
+
+        System.assertEquals(rfa.Agreement_Type__c, result.Agreement_Type__c, 'RFA agreement type was not retrieved as expected');
+        System.assertEquals(1, result.Agreement_Parcels__r.size(), 'RFA parcels were not retrieved as expected');
+    }
+
+    @isTest
+    static void testRetrieveRFAData_Error() {
+        // TO DO: implement unit test
+
+        Project__c proj = new Project__c(Name = 'DCprojSeven');
+        insert proj;
+
+        Account acc = new Account(Name = 'DCaccountSeven', RecordTypeId = '0124W000000y85qQAA', Project_Required__c = proj.id);
+        insert acc;
+
+        Project_Team__c ProjTeam = new Project_Team__c(Project__c = proj.id, Role__c = 'External Title Specialist',
+            User__c = '0054W00000EeireQAB');
+        insert ProjTeam;
+
+        Request_for_Agreement__c rfa = new Request_for_Agreement__c(Name = 'DCrfaSeven', Account__c = acc.id,
+            Project_Name__c = proj.id, Agreement_Type__c = 'Wind Energy Lease and Easement Agreement');
+        insert rfa;
+
+        Parcel__c parcelrec = new Parcel__c(Name = '0999x', Account__c = acc.id, Parcel_ID_Local__c = 'ID0999x', Acres_Deed__c = 13, Acres_GIS__c = 17, State_Province__c = 'CO', County__c = 'Springfield');
+        insert parcelrec;
+
+        Agreement_Parcel__c agreeParcel = new Agreement_Parcel__c(Parcel__c = parcelrec.id, Request_for_Agreement__c = rfa.id);
+        insert agreeParcel;
+        
+        String handledException = null;
+
+        Test.startTest();
+        try {
+            Request_For_Agreement__c result = RFAvalidation.getAllRelatedParcels(null);
+        } catch (Exception ex) {
+             handledException = ex.getMessage();
+        }
+        Test.stopTest();
+
+        System.assertNotEquals(handledException, null);
 
     }
 }

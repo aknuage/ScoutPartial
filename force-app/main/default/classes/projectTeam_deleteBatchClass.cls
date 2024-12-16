@@ -37,7 +37,7 @@ public with sharing class projectTeam_deleteBatchClass implements Database.Batch
             List<AccountShare> accountSharesToDelete = [SELECT Id FROM AccountShare WHERE AccountId IN :accountIds AND UserOrGroupId = :userId];
             if (!accountSharesToDelete.isEmpty()) {
                 delete accountSharesToDelete;
-                System.debug('Deleted AccountShare records for user: ' + userId);
+                System.debug('Deleted ' + accountSharesToDelete.size() + ' AccountShare records for user: ' + userId);
             } else {
                 System.debug('No AccountShare records found for deletion.');
             }
