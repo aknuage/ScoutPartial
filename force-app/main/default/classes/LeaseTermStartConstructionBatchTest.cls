@@ -11,8 +11,10 @@ public class LeaseTermStartConstructionBatchTest {
         Account a = new Account(Name = 'NuAge Test');
         insert a;
 
-        Id landOwnerConId = [SELECT Id FROM RecordType WHERE RecordType.Name = 'Land Owner Contact' LIMIT 1].Id;
-        Contact con = new Contact(FirstName = 'Anthony', LastName = 'NuAge', RecordTypeId = landOwnerConId);
+        // Id landOwnerConId = [SELECT Id FROM RecordType WHERE RecordType.Name = 'Land Owner Contact' LIMIT 1].Id;
+        Contact con = new Contact(FirstName = 'Anthony', LastName = 'NuAge'
+                                  // RecordTypeId = landOwnerConId
+                                 );
         insert con;
 
         // Create System Admin User to override Read/Write limits on Terms

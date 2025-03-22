@@ -52,9 +52,9 @@ public with sharing class ContractExpirationExtensionBatchClass implements Datab
         System.debug('BEFORE - LIMITS AVAILABLLE - ' + Limits.getLimitCPUTime());
         for (Contract c : contracts) {
             Date initialDate = c.Lease_Expiration_Extension__c;
-            
+
             // Skip contract if already in the future
-            if (c.StartDate > Date.today()) {
+            if (initialDate > Date.today()) {
                 continue;
             }
 

@@ -27,15 +27,9 @@ trigger ProjectTeamTrigger on Project_Team__c (
                 */
             }
             else{
-                if(Trigger.isInsert){
-                    ProjectTeamController.projectTeam_insert(Trigger.new);
-                }
-                else if(Trigger.isUpdate){
-                    ProjectTeamController.projectTeam_update(Trigger.new, Trigger.oldMap);   
-                }
-                else if(Trigger.isDelete){
-                    ProjectTeamController.projectTeam_delete(Trigger.old);
-                }
+                if(Trigger.isInsert){ProjectTeamController.projectTeam_insert(Trigger.new); }
+                else if(Trigger.isUpdate){ ProjectTeamController.projectTeam_update(Trigger.new, Trigger.oldMap); }
+                else if(Trigger.isDelete){ProjectTeamController.projectTeam_delete(Trigger.old);}
                 /*
                 else if(Trigger.isUndelete){
                     

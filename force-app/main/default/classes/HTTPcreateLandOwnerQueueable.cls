@@ -11,6 +11,20 @@ public class HTTPcreateLandOwnerQueueable implements Queueable, Database.AllowsC
     public void execute(QueueableContext context) {
         List<String> returnList = new List<String>();
 
+        /*
+        if(LOPrecord.Vendor_ID__c == null){
+            System.debug('No Vendor Id entered on record: ');
+            LOPrecord.OracleIntegrationInfo__c = 'No Vendor Id/Supplier Number for this recipient.'  + Datetime.now();
+            LOPrecord.Block_Integration_due_to_Error__c = True;
+            try {
+                update LOPrecord;  // Commit the changes after the callout response
+            } catch (DmlException e) {
+                System.debug('Error updating LOPrecord after callout failure: ' + e.getMessage());
+            }
+            //return returnList;
+        }
+        */
+
         // Now proceed with the HTTP callout after DML commit
         Http http = new Http();
         HttpRequest request = new HttpRequest();
@@ -61,6 +75,7 @@ public class HTTPcreateLandOwnerQueueable implements Queueable, Database.AllowsC
         // Send the HTTP request
         HttpResponse response = http.send(request);
 
+        try{
         // Handle the response based on status code
         if (response.getStatusCode() != 201) {
             System.debug('The status code returned was not expected: ' + response.getStatusCode());
@@ -87,8 +102,14 @@ public class HTTPcreateLandOwnerQueueable implements Queueable, Database.AllowsC
                 System.debug('Error updating LOPrecord after callout success: ' + e.getMessage());
             }
         }
+    } catch (System.CalloutException e) {
+        System.debug('Callout Exception: ' + e.getMessage());
+        LOPrecord.Block_Integration_due_to_Error__c = True;
+        LOPrecord.OracleIntegrationInfo__c = e.getMessage() + ' ' + Datetime.now();
+    }
 
         returnList.add(response.getBody());
+    
     }
 
     @InvocableMethod(label='Create Land Owner Invoice' description='Queues a job to create a land owner invoice in Oracle.')
@@ -97,7 +118,7 @@ public class HTTPcreateLandOwnerQueueable implements Queueable, Database.AllowsC
         for (Land_Owner_Payment__c record : LOPrecords) {
             // Create a new Queueable job for each record
             HTTPcreateLandOwnerQueueable job = new HTTPcreateLandOwnerQueueable(record);
-
+            
             // Enqueue the job
             System.enqueueJob(job);
         }

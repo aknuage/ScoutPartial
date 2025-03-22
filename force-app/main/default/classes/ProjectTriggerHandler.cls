@@ -11,14 +11,13 @@ public with sharing class ProjectTriggerHandler extends TriggerHandler {
         {
             System.debug('term in new list: ' + p.Construction_Start_Date__c);
             Boolean startDateChanged = p.Construction_Start_Date__c != null && oldMap.get(p.Id).Construction_Start_Date__c != null && oldMap.get(p.Id).Construction_Start_Date__c != p.Construction_Start_Date__c;
-            
-            // AK @ NuAge Experts: Kick off Batch process if Construction Date on Project has changed
+            // Check if Start of Construction has occurred
             if ((p.Construction_Start_Date__c != null && oldMap.get(p.Id).Construction_Start_Date__c == null) || startDateChanged)
             {
                 constructionStartIds.add(p.Id);
             }
         }
-        // AK @ NuAge - pass Project IDs to batch class to terminate past Land Owner Payments
+        // AK - pass terms IDs to batch class to terminate past Land Owner Payments
         if (!constructionStartIds.isEmpty()) 
         {
             Database.ExecuteBatch(new LeaseTermStartConstructionBatch(constructionStartIds), 30);

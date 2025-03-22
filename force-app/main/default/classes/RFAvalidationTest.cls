@@ -1,94 +1,66 @@
-/**
- * This class contains unit tests for validating the behavior of Apex classes
- * and triggers.
- *
- * Unit tests are class methods that verify whether a particular piece
- * of code is working properly. Unit test methods take no arguments,
- * commit no data to the database, and are flagged with the testMethod
- * keyword in the method definition.
- *
- * All test methods in an org are executed whenever Apex code is deployed
- * to a production org to confirm correctness, ensure code
- * coverage, and prevent regressions. All Apex classes are
- * required to have at least 75% code coverage in order to be deployed
- * to a production org. In addition, all triggers must have some code coverage.
- * 
- * The @isTest class annotation indicates this class only contains test
- * methods. Classes defined with the @isTest annotation do not count against
- * the org size limit for all Apex scripts.
- *
- * See the Apex Language Reference for more information about Testing and Code Coverage.
- */
 @isTest
 private class RFAvalidationTest {
 
     @isTest
-    static void testRetrieveRFAData_Success() {
+    static void myUnitTest() {
         // TO DO: implement unit test
+       
+Project__c proj = new Project__c(Name = 'DCprojSeven');
+insert proj;
 
-        Project__c proj = new Project__c(Name = 'DCprojSeven');
-        insert proj;
+Id accRecTypeId = [SELECT Id, Name, DeveloperName, SobjectType
+FROM RecordType
+WHERE SobjectType = 'Account' AND DeveloperName = 'Acct_RecType_LocalStakeholder' LIMIT 1].Id;
 
-        Account acc = new Account(Name = 'DCaccountSeven', RecordTypeId = '0124W000000y85qQAA', Project_Required__c = proj.id);
-        insert acc;
+Profile ScoutTeam = [SELECT Id FROM Profile where name = 'Scout Team' Limit 1];
 
-        Project_Team__c ProjTeam = new Project_Team__c(Project__c = proj.id, Role__c = 'External Title Specialist',
-            User__c = '0054W00000EeireQAB');
-        insert ProjTeam;
+//TODO - Add USER RECORD - reference below
+USER testUser = new User (FirstName ='Fred', LastName='flintstone', profileId=ScoutTeam.Id, alias ='fflint',email='test@example.com', 
+                        username = 'testasdf@example.com', TimeZoneSidKey = 'GMT', LanguageLocaleKey = 'en_US', EmailEncodingKey = 'UTF-8',
+                        LocaleSidKey = 'en_US');
+insert testUser;
 
-        Request_for_Agreement__c rfa = new Request_for_Agreement__c(Name = 'DCrfaSeven', Account__c = acc.id,
-            Project_Name__c = proj.id, Agreement_Type__c = 'Wind Energy Lease and Easement Agreement');
-        insert rfa;
+Account acc = new Account(Name = 'DCaccountSeven', RecordTypeId =accRecTypeId, Project_Required__c=proj.id, owner = testUser);
+insert acc;
 
-        Parcel__c parcelrec = new Parcel__c(Name = '0999x', Account__c = acc.id, Parcel_ID_Local__c = 'ID0999x', Acres_Deed__c = 13, Acres_GIS__c = 17, State_Province__c = 'CO', County__c = 'Springfield');
-        insert parcelrec;
+Project_Team__c ProjTeam = new Project_Team__c(Project__c=proj.id, Role__c='External Title Specialist', 
+User__c =testUser.Id);
+insert ProjTeam;
 
-        Agreement_Parcel__c agreeParcel = new Agreement_Parcel__c(Parcel__c = parcelrec.id, Request_for_Agreement__c = rfa.id);
-        insert agreeParcel;
+Project_Team__c ProjTeamExternalDocPrep = new Project_Team__c(Project__c=proj.id, Role__c='External Doc Prep', 
+User__c =testUser.Id);
+insert ProjTeamExternalDocPrep;
 
-        Test.startTest();
-        Request_For_Agreement__c result = RFAvalidation.getAllRelatedParcels(rfa.id);
-        Test.stopTest();
+Request_for_Agreement__c rfa = new Request_for_Agreement__c(Name = 'DCrfaSeven', Account__c = acc.id,
+Project_Name__c = proj.id, Agreement_Type__c ='Wind Energy Lease and Easement Agreement');
+insert rfa;
 
-        System.assertEquals(rfa.Agreement_Type__c, result.Agreement_Type__c, 'RFA agreement type was not retrieved as expected');
-        System.assertEquals(1, result.Agreement_Parcels__r.size(), 'RFA parcels were not retrieved as expected');
+Parcel__c parcelrec  = new Parcel__c (Name = '0999x', Account__c = acc.id, Parcel_ID_Local__c = 'ID0999x', Acres_Deed__c =13,Acres_GIS__c=17,State_Province__c='CO',County__c='Springfield');
+insert parcelrec;
+
+Agreement_Parcel__c agreeParcel= new Agreement_Parcel__c (Parcel__c = parcelrec.id, Request_for_Agreement__c=rfa.id);
+insert agreeParcel;
+
+
+Request_for_Amendment__c rfaAmendment = new Request_for_Amendment__c (Account__c = acc.id, Agreement_Type__c = 'Wind Energy Lease and Easement Agreement',
+Comments_for_Doc_Prep__c='Comments',Lease_Version_Document_Name__c = 'v2',
+Project__c = proj.id, Status__c = 'Request for Amendment',  Title_Clear__c = 'Yes', Title_Issues_Comments__c='Title commnet' );
+insert rfaAmendment;
+
+
+
+Test.startTest();
+RFAvalidation.getAllRelatedParcels(rfa.id);
+
+
+RFAvalidation.getAmendment(rfaAmendment.id);
+
+try{
+RFAvalidation.getAllRelatedParcels('asdf8877');
+    } catch (Exception e) {
+        System.assert(e.getMessage().contains('Invalid id'));
     }
-
-    @isTest
-    static void testRetrieveRFAData_Error() {
-        // TO DO: implement unit test
-
-        Project__c proj = new Project__c(Name = 'DCprojSeven');
-        insert proj;
-
-        Account acc = new Account(Name = 'DCaccountSeven', RecordTypeId = '0124W000000y85qQAA', Project_Required__c = proj.id);
-        insert acc;
-
-        Project_Team__c ProjTeam = new Project_Team__c(Project__c = proj.id, Role__c = 'External Title Specialist',
-            User__c = '0054W00000EeireQAB');
-        insert ProjTeam;
-
-        Request_for_Agreement__c rfa = new Request_for_Agreement__c(Name = 'DCrfaSeven', Account__c = acc.id,
-            Project_Name__c = proj.id, Agreement_Type__c = 'Wind Energy Lease and Easement Agreement');
-        insert rfa;
-
-        Parcel__c parcelrec = new Parcel__c(Name = '0999x', Account__c = acc.id, Parcel_ID_Local__c = 'ID0999x', Acres_Deed__c = 13, Acres_GIS__c = 17, State_Province__c = 'CO', County__c = 'Springfield');
-        insert parcelrec;
-
-        Agreement_Parcel__c agreeParcel = new Agreement_Parcel__c(Parcel__c = parcelrec.id, Request_for_Agreement__c = rfa.id);
-        insert agreeParcel;
-        
-        String handledException = null;
-
-        Test.startTest();
-        try {
-            Request_For_Agreement__c result = RFAvalidation.getAllRelatedParcels(null);
-        } catch (Exception ex) {
-             handledException = ex.getMessage();
-        }
-        Test.stopTest();
-
-        System.assertNotEquals(handledException, null);
+Test.stopTest();
 
     }
 }

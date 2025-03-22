@@ -19,6 +19,7 @@ public with sharing class TermTriggerHandler extends TriggerHandler {
             {
                 if (t.Start_of_Construction_Date__c != null) // Check that Start Date not null
                 {
+                    System.debug('adding term to set');
                     constructionTermProjectIds.add(t.Project__c);
                 }
             }

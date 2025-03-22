@@ -95,10 +95,8 @@ public class AccountTeamMemberDeletionHandler {
         for (Id accountId : ownersNeedingAccess.keySet()) {
             for (Id ownerId : ownersNeedingAccess.get(accountId)) {
                 AccountShare share = new AccountShare();
-                share.AccountId = accountId; 
-                share.UserOrGroupId = ownerId;
-                share.AccountAccessLevel = 'Read'; 
-                share.RowCause = 'Manual'; // Ensures it's a manually created share
+                share.AccountId = accountId; share.UserOrGroupId = ownerId;
+                share.AccountAccessLevel = 'Read'; share.RowCause = 'Manual'; // Ensures it's a manually created share
                 newShares.add(share);
             }
         }

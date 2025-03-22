@@ -62,30 +62,37 @@ public with sharing class HTTPcreateLandOwner implements Database.AllowsCallouts
         
         System.debug('request payload: ' + request);
         
-        HttpResponse response = http.send(request);
-        // Parse the JSON response
-        
-        if(response.getStatusCode() != 201) {
-            System.debug('The status code returned was not expected: ' + response.getStatusCode() + ' ' + response.getStatus());
-               System.debug('body: ' + response.getBody());
-               LOPrecord.OracleIntegrationInfo__c =response.getBody() + ' ' + Datetime.now();
-               update LOPrecord;
-        } else {
-            System.debug(response.getBody());
-            Map<String, Object> m = (Map<String, Object>) JSON.deserializeUntyped(response.getBody());
-        
-            String InvoiceNumber = (String)m.get('InvoiceNumber');
-            String InvoiceID = String.valueOf (m.get('InvoiceId'));
-            System.debug('debugging String m:  ' + InvoiceNumber + ' - ' + InvoiceID);
+        try {
+            HttpResponse response = http.send(request);
+            // Parse the JSON response
+            
+            if(response.getStatusCode() != 201) {
+                System.debug('The status code returned was not expected: ' + response.getStatusCode() + ' ' + response.getStatus());
+                System.debug('body: ' + response.getBody());
+                LOPrecord.OracleIntegrationInfo__c =response.getBody() + ' ' + Datetime.now();
+                update LOPrecord;
+            } else {
+                System.debug(response.getBody());
+                Map<String, Object> m = (Map<String, Object>) JSON.deserializeUntyped(response.getBody());
+            
+                String InvoiceNumber = (String)m.get('InvoiceNumber');
+                String InvoiceID = String.valueOf (m.get('InvoiceId'));
+                System.debug('debugging String m:  ' + InvoiceNumber + ' - ' + InvoiceID);
 
-            LOPrecord.OracleIntegrationInfo__c = 'Successful Oracle Creation' + ' ' + Datetime.now();
-            LOPrecord.OracleRecordId__c = InvoiceID;
-            LOPrecord.Status__c = 'Pending';
-            LOPrecord.Paid_Amount__c = LOPrecord.Actual_Payment_to_Payee__c??0;
-            update LOPrecord;
+                LOPrecord.OracleIntegrationInfo__c = 'Successful Oracle Creation' + ' ' + Datetime.now();
+                LOPrecord.OracleRecordId__c = InvoiceID;
+                LOPrecord.Status__c = 'Pending';
+                LOPrecord.Paid_Amount__c = LOPrecord.Actual_Payment_to_Payee__c??0;
+                update LOPrecord;
+            }           
+
+            returnlist.add(response.getBody());
+            
+        } catch (System.CalloutException e) {
+            System.debug('Callout Exception: ' + e.getMessage());
+            LOPrecord.Block_Integration_due_to_Error__c = True;
+            LOPrecord.OracleIntegrationInfo__c = e.getMessage() + ' ' + Datetime.now();
         }
-
-        returnlist.add(response.getBody());
         return(returnList);
     }
 }
