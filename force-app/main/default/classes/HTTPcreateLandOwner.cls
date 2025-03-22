@@ -1,19 +1,24 @@
-public with sharing class HTTPcreateLandOwner {
+public with sharing class HTTPcreateLandOwner implements Database.AllowsCallouts {
     @InvocableMethod
     public static List<String> HTTPcreateLandOwner(List<ID> ids) {
         List<String> returnList = new List<String>();
 
+        
+        Land_Owner_Payment__c  LOPrecord = [SELECT OracleBusinessUnit__c,OracleInvoiceSource__c, OracleInvoiceGroup__c,InvoiceNumber__c,
+        OracleCurrency__c, Actual_Payment_to_Payee__c, OracleDate__c, OracleSupplier__c,
+        OracleSupplierSite__c,	OracleLegalEntity__c, OracleInvoiceType__c, 
+        NotestoAccounting__c, OracleDistributionSet__c, OracleDistributionCombination__c, OracleProjectId__c, 
+        OracleTaskId__c,  OracleExpenditureTypeID__c, 
+        OracleOrganizationIdDisplay__c FROM Land_Owner_Payment__c WHERE ID=:ids limit 1];
+	
         Http http = new Http();
         HttpRequest request = new HttpRequest();
        //request.setEndpoint('https://iauuqy-test.fa.ocs.oraclecloud.com/fscmRestApi/resources/11.13.18.05/invoices');
        request.setEndpoint('callout:OracleCredential'+ '/fscmRestApi/resources/11.13.18.05/invoices');
         request.setMethod('POST');
         request.setHeader('Content-Type', 'application/vnd.oracle.adf.resourceitem+json');
-        
-        Land_Owner_Payment__c  LOPrecord = [SELECT OracleBusinessUnit__c,OracleInvoiceSource__c, OracleInvoiceGroup__c,InvoiceNumber__c,
-        OracleCurrency__c, Actual_Payment_to_Payee__c, OracleDate__c, OracleSupplier__c, OracleSupplierSite__c,	OracleLegalEntity__c, OracleInvoiceType__c, 
-        NotestoAccounting__c, OracleDistributionSet__c, OracleProjectId__c, OracleTaskId__c,  OracleExpenditureTypeID__c, OracleOrganizationIdDisplay__c FROM Land_Owner_Payment__c WHERE ID=:ids limit 1];
 
+       
         JSONGenerator gen = JSON.createGenerator(true);
         gen.writeStartObject();
         gen.writeStringField('BusinessUnit', LOPrecord.OracleBusinessUnit__c??'');
@@ -33,7 +38,8 @@ public with sharing class HTTPcreateLandOwner {
         gen.writeStartObject();
         gen.writeNumberField('LineNumber', 1);
         gen.writeStringField('LineType', 'Item');
-        gen.writeNumberField('LineAmount',LOPrecord.Actual_Payment_to_Payee__c??1.17);
+        gen.writeNumberField('LineAmount',LOPrecord.Actual_Payment_to_Payee__c??0);
+        gen.writeStringField('DistributionCombination',LOPrecord.OracleDistributionCombination__c??'');
         gen.writeFieldName('invoiceLineProjectDff');
         gen.writeStartArray();
         gen.writeStartObject();
@@ -75,8 +81,9 @@ public with sharing class HTTPcreateLandOwner {
             LOPrecord.OracleIntegrationInfo__c = 'Successful Oracle Creation' + ' ' + Datetime.now();
             LOPrecord.OracleRecordId__c = InvoiceID;
             LOPrecord.Status__c = 'Pending';
+            LOPrecord.Paid_Amount__c = LOPrecord.Actual_Payment_to_Payee__c??0;
             update LOPrecord;
-        }           
+        }
 
         returnlist.add(response.getBody());
         return(returnList);

@@ -1,154 +1,132 @@
 /**
- * @description       : 
- * @author            : NuAge - JP
- * @group             : 
- * @last modified on  : 06-24-2024
- * @last modified by  : NuAge - JP
+ * @description       : Scheduled Batch Class which checks for Contracts whose Start of Construction date
+ * has changed, and updates its related Lease Expiration Extension field based on the most recently used 
+ * Term Extension from the related RFA. If the Lease Expiration Extension is in the past, it will be updated
+ * based on the value of the next extension term, in years (e.g. 2 = 2 years, 0.5 = 6 months), up until the final
+ * term extension.
+ * @author            : NuAge - AKelly
+ * @last modified on  : 12-26-2024
+ * @last modified by  : NuAge - Akelly
 **/
-public with sharing class ContractExpirationExtensionBatchClass implements Database.Batchable<Contract>, Database.stateful {
+public with sharing class ContractExpirationExtensionBatchClass implements Database.Batchable<Contract> {
     public Date testDate;
-    public Iterable<Contract> start(Database.BatchableContext BC){
+
+    public Iterable<Contract> start(Database.BatchableContext BC) {
         Date runDate;
-        if(!Test.isRunningTest()){
-            // TODO: Update c.Test_Today_s_Date__c.addDays(-1) to date.today().addDays(-1)
-            runDate = date.today().addDays(-1);
-        } else{
+        if (!Test.isRunningTest()) {
+            runDate = Date.today().addDays(-1); // Adjust date for testing
+        } else {
             runDate = testDate.addDays(-1);
         }
-        List<Contract> contracts = [SELECT Id, Lease_Expiration_Extension__c, Request_for_Agreement__r.Development_Term_Extension_1__c,
-                                    Request_for_Agreement__r.Development_Term_Extension_2__c, Request_for_Agreement__r.Development_Term_Extension_3__c,
-                                    Request_for_Agreement__r.Development_Term_Extension_4__c, Request_for_Agreement__r.Development_Term_Extension_5__c,
-                                    StartDate, Request_for_Agreement__r.Development_Term_Length__c, Lease_Expiration_Amendment_formula__c  
-                                    FROM Contract WHERE Lease_Expiration_Extension__c != null AND Current_Date__c != null
-                                    AND Start_of_Construction__c = null AND Request_for_Agreement__r.Number_Of_Development_Term_Extensions__c !=null  
-                                    AND Lease_Expiration_Extension__c <= :runDate ORDER BY Lease_Expiration_Extension__c ASC LIMIT 25];
 
-        // List<Contract> contractRange = new List<Contract>();
-        // for(Contract c: contracts){
-        //     if(contractRange.size() != 25){
-        //         if(runDate != null){
-        //             if(c.Lease_Expiration_Extension__c == runDate){
-        //                 contractRange.add(c);
-        //             }
-        //         }
-        //     }
-        // }
+        List<Contract> contracts = [SELECT Id, Name, ContractNumber, Lease_Expiration_Extension__c, 
+                                    Request_for_Agreement__r.Development_Term_Extension_1__c,
+                                    Request_for_Agreement__r.Development_Term_Extension_2__c,
+                                    Request_for_Agreement__r.Development_Term_Extension_3__c,
+                                    Request_for_Agreement__r.Development_Term_Extension_4__c,
+                                    Request_for_Agreement__r.Development_Term_Extension_5__c,
+                                    Request_for_Agreement__r.Development_Term_Extension_6__c,
+                                    Request_for_Agreement__r.Development_Term_Extension_7__c,
+                                    Request_for_Agreement__r.Development_Term_Extension_8__c,
+                                    Request_for_Agreement__r.Development_Term_Extension_9__c,
+                                    Request_for_Agreement__r.Development_Term_Extension_10__c,
+                                    StartDate, Request_for_Agreement__r.Development_Term_Length__c,
+                                    Lease_Expiration_Amendment_formula__c, Last_Used_Term_Extension__c
+                                    FROM Contract 
+                                    WHERE Lease_Expiration_Extension__c != null 
+                                    AND Current_Date__c != null
+                                    // AND ContractNumber = '00002178' // GREENBEANS FOR TESTING PURPOSES ONLY
+                                    // AND ContractNumber = '00002185' // testing west team FOR TESTING PURPOSES ONLY
+                                    AND Start_of_Construction__c = null 
+                                    AND Request_for_Agreement__r.Number_Of_Development_Term_Extensions__c != null  
+                                    AND Lease_Expiration_Extension__c <= :runDate 
+                                    ORDER BY Lease_Expiration_Extension__c ASC 
+                                    LIMIT 20];
+        System.debug('Query returned ' + contracts.size() + ' contracts.');
         return contracts;
     }
+
     public void execute(Database.BatchableContext info, List<Contract> contracts) {
-        Date dateToday = date.today();
         List<Contract> updateContracts = new List<Contract>();
-        // Iterate over the contracts
-        for(Contract c: contracts){
-            system.debug('Contract::'+c);
-            // Initialize formulas -- TODO: add a null checks :)
-            // {!Loop_Contracts.Lease_Expiration_Extension__c}
-            Date initialDate;
-            if(c.Request_for_Agreement__r.Development_Term_Length__c != null){
-                initialDate = c.StartDate.addMonths(((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Length__c)-1) * 12));
-            } else{
-                initialDate = null;
+        System.debug('BEFFORE - LIMITS USED: ' + Limits.getCPUTime());
+        System.debug('BEFORE - LIMITS AVAILABLLE - ' + Limits.getLimitCPUTime());
+        for (Contract c : contracts) {
+            Date initialDate = c.Lease_Expiration_Extension__c;
+            
+            // Skip contract if already in the future
+            if (c.StartDate > Date.today()) {
+                continue;
             }
-            system.debug('INITIAL DATE::'+ initialDate);
 
-            Date contractExtension1;
-            if(c.Request_for_Agreement__r.Development_Term_Extension_1__c != null){
-                contractExtension1 = initialDate.addMonths((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_1__c) * 12));
-            } else{
-                contractExtension1 = null;
-            }
-            system.debug('CONTRACT EXTENSION DATE 1::'+ contractExtension1);
+            List<String> extensionValues = new List<String>{
+                c.Request_for_Agreement__r.Development_Term_Extension_1__c,
+                c.Request_for_Agreement__r.Development_Term_Extension_2__c,
+                c.Request_for_Agreement__r.Development_Term_Extension_3__c,
+                c.Request_for_Agreement__r.Development_Term_Extension_4__c,
+                c.Request_for_Agreement__r.Development_Term_Extension_5__c,
+                c.Request_for_Agreement__r.Development_Term_Extension_6__c,
+                c.Request_for_Agreement__r.Development_Term_Extension_7__c,
+                c.Request_for_Agreement__r.Development_Term_Extension_8__c,
+                c.Request_for_Agreement__r.Development_Term_Extension_9__c,
+                c.Request_for_Agreement__r.Development_Term_Extension_10__c
+            };
 
-            Date contractExtension2;
-            if(c.Request_for_Agreement__r.Development_Term_Extension_2__c != null){
-                contractExtension2 = contractExtension1.addMonths((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_2__c) * 12));
-            } else{
-                contractExtension2 = null;
-            }
-            system.debug('CONTRACT EXTENSION DATE 2::'+ contractExtension2);
+            Integer finalValidExtension = findFinalValidExtension(extensionValues);
+            System.debug('Contract ' + c.Name + ' has ' + finalValidExtension + ' valid extensions');
+            Integer lastUsedExtension = (c.Last_Used_Term_Extension__c != null) ? c.Last_Used_Term_Extension__c.intValue() : 0;
 
-            Date contractExtension3;
-            if(c.Request_for_Agreement__r.Development_Term_Extension_3__c != null){
-                contractExtension3 = contractExtension2.addMonths((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_3__c) * 12));
-            } else{
-                contractExtension3 = null;
-            }
-            system.debug('CONTRACT EXTENSION DATE 3::'+ contractExtension3);
+            Date updateContractDate = initialDate;
 
-            Date contractExtension4;
-            if(c.Request_for_Agreement__r.Development_Term_Extension_4__c != null){
-                contractExtension4 = contractExtension3.addMonths((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_4__c) * 12));
-            } else{
-                contractExtension4 = null;
-            }
-            system.debug('CONTRACT EXTENSION DATE 4::'+ contractExtension4);
+            Boolean expirationUpdated = false;
 
-            Date contractExtension5;
-            if(c.Request_for_Agreement__r.Development_Term_Extension_5__c != null){
-                contractExtension5 = contractExtension4.addMonths((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_5__c) * 12));
-            } else{
-                contractExtension5 = null;
-            }
-            system.debug('CONTRACT EXTENSION DATE 5::'+ contractExtension5);
+            if (lastUsedExtension >= finalValidExtension) System.debug('Contract ' + c.Name + ' has surpassed its final valid extension term');
 
-            system.debug('INITIAL DATE:: '+initialDate);
-            Date updateContractDate;
-            if(c.Request_for_Agreement__r.Development_Term_Extension_5__c != null){
-                if(c.Lease_Expiration_Extension__c.addMonths((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_5__c) * 12)) <= contractExtension5){
-                    
-                    updateContractDate = contractExtension5;
+            while (updateContractDate <= Date.today() && lastUsedExtension < finalValidExtension) {
+                String nextExtensionValue = extensionValues[lastUsedExtension];
+                System.debug('next extension value? '  + nextExtensionValue);
+                if (nextExtensionValue != null) {
+                    Decimal monthsToAdd = Decimal.valueOf(nextExtensionValue) * 12;
+
+                    if (updateContractDate.addMonths(monthsToAdd.intValue()) > c.Lease_Expiration_Extension__c) {
+                        updateContractDate = updateContractDate.addMonths(monthsToAdd.intValue());
+                        lastUsedExtension++;
+                        expirationUpdated = true;
+                    }
                 }
-            }
-            if(c.Request_for_Agreement__r.Development_Term_Extension_4__c != null){
-                if(c.Lease_Expiration_Extension__c.addMonths((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_4__c) * 12)) <= contractExtension4){
-                    
-                    updateContractDate = contractExtension4;
-                }
-            }
-            if(c.Request_for_Agreement__r.Development_Term_Extension_3__c != null){
-                if(c.Lease_Expiration_Extension__c.addMonths((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_3__c) * 12)) <= contractExtension3){
-                    
-                    updateContractDate = contractExtension3;
-                }
-            }
-            if(c.Request_for_Agreement__r.Development_Term_Extension_2__c != null){
-                system.debug(c.Lease_Expiration_Extension__c.addMonths((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_2__c) * 12)));
-                system.debug(contractExtension2);
-                if(c.Lease_Expiration_Extension__c.addMonths(((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_2__c)-1) * 12)) <= contractExtension2){
-                    Contract updateContract = new Contract();
-                    
-                    updateContractDate = contractExtension2;
-                }
-            }
-            if(c.Request_for_Agreement__r.Development_Term_Extension_1__c != null){
-                if(c.Lease_Expiration_Extension__c.addMonths((Integer.valueOf(c.Request_for_Agreement__r.Development_Term_Extension_1__c) * 12)) <= contractExtension1){
-                    updateContractDate = contractExtension1;
+
+                if (expirationUpdated && updateContractDate > Date.today()) {
+                    break;
                 }
             }
 
-            system.debug(updateContractDate);
-
-            if(updateContractDate != null){
-                Contract updateContract = new Contract();
-                updateContract.Id = c.Id;
+            if (expirationUpdated && updateContractDate != c.Lease_Expiration_Extension__c) {
+                System.debug('AFTER - LIMITS USED: ' + Limits.getCPUTime());
+                System.debug('AFTER - LIMITS AVAILABLLE - ' + Limits.getLimitCPUTime());
+                Contract updateContract = new Contract(Id = c.Id);
                 updateContract.Lease_Expiration_Extension__c = updateContractDate;
-        
+                updateContract.Last_Used_Term_Extension__c = lastUsedExtension == 0 ? null : lastUsedExtension;
+                System.debug('Updating: ' + updateContract.Name + ' expiry to: ' + updateContractDate + '. Last used extension is: ' + lastUsedExtension);
                 updateContracts.add(updateContract);
             }
         }
 
-        system.debug(updateContracts);
-        if(updateContracts.size() > 0) update updateContracts;
+        if (!updateContracts.isEmpty()) {
+            update updateContracts;
+            // System.enqueueJob(new ContractExpirationUpdateQueueable(updateContracts));
+        }
     }
+
+    private Integer findFinalValidExtension(List<String> extensionValues) {
+        Integer validExtensionsCount = 0;
+        for (Integer i = 0; i < extensionValues.size(); i++) {
+            if (extensionValues[i] != null && extensionValues[i] != '') {
+                validExtensionsCount++;
+            }
+        }
+        return validExtensionsCount - 1;
+    }
+
     public void finish(Database.BatchableContext info) {
-        
+        System.debug('Batch process completed.');
     }
 }
-
-/*
-    Callout to run batch class
-
-    // This class can only handle one at a time :)
-    ContractExpirationExtensionBatchClass gdfc = new ContractExpirationExtensionBatchClass();
-    Database.executeBatch(gdfc, 1);
-*/

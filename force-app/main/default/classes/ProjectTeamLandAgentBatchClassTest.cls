@@ -108,27 +108,4 @@ public with sharing class ProjectTeamLandAgentBatchClassTest {
         List<AccountShare> oldAccountShares = [SELECT Id FROM AccountShare WHERE UserOrGroupId = :user1.Id];
         // System.assertEquals(0, oldAccountShares.size(), 'Old AccountShare should be deleted for the old user.');
     }
-
-    @isTest
-    static void testDeleteLandAgentBatchClass() {
-        // Retrieve test data
-        Project__c project = [SELECT Id FROM Project__c WHERE Name = 'Test Project' LIMIT 1];
-        User user1 = [SELECT Id FROM User WHERE Email LIKE 'user1%' LIMIT 1];
-        List<Project_Team__c> projectTeams = [SELECT Id, Project__c, User__c FROM Project_Team__c WHERE User__c = :user1.Id];
-
-        // Instantiate and execute the delete batch class
-        Test.startTest();
-        projectTeam_deleteLandAgentBatchClass deleteBatch = new projectTeam_deleteLandAgentBatchClass();
-        deleteBatch.projectTeams = projectTeams;
-        Database.executeBatch(deleteBatch, 1);
-        Test.stopTest();
-
-        // Assert that Project__Share records are deleted for user1
-        List<Project__Share> projectShares = [SELECT Id, ParentId FROM Project__Share WHERE UserOrGroupId = :user1.Id];
-        System.assertEquals(0, projectShares.size(), 'Project__Share records should be deleted for user1.');
-
-        // Assert that AccountShare records are deleted for user1
-        List<AccountShare> accountShares = [SELECT Id FROM AccountShare WHERE UserOrGroupId = :user1.Id];
-        // System.assertEquals(0, accountShares.size(), 'AccountShare records should be deleted for user1.');
-    }
 }

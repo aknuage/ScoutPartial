@@ -1,5 +1,6 @@
 /**
- * Tests LeaseTermStartConstructionBatch and TermTriggerHandler.
+ * @description: Tests LeaseTermStartConstructionBatch and ProjectTriggerHandler.
+ * @author: AKelly @ NuAge Experts : December 2024
  */
 @isTest
 public class LeaseTermStartConstructionBatchTest {
@@ -38,17 +39,6 @@ public class LeaseTermStartConstructionBatchTest {
             }
             insert projects;
 
-            // Create test data for Term__c
-            List<Term__c> terms = new List<Term__c>();
-            for (Integer i = 0; i < 3; i++) {
-                terms.add(new Term__c(
-                    Name = 'Test Term ' + i,
-                    Start_of_Construction_Date__c = Date.today().addDays(-5),
-                    Project__c = projects[i].Id
-                ));
-            }
-            insert terms;
-
             // Create related data for formula fields
             List<Payment_Calculation__c> paymentCalculations = new List<Payment_Calculation__c>();
             for (Integer i = 0; i < 6; i++) {
@@ -80,21 +70,22 @@ public class LeaseTermStartConstructionBatchTest {
 
     @isTest
     static void testBatchExecution() {
-        // Query termProjectIds
-        Set<Id> termProjectIds = new Set<Id>();
-        for (Term__c term : [SELECT Project__c FROM Term__c WHERE Start_of_Construction_Date__c != null]) {
-            termProjectIds.add(term.Project__c);
+        Map<Id, Project__c> projectsForUpdate = new Map<Id, Project__c>();
+        List<Project__c> existingProjects = [SELECT Id, Construction_Start_Date__c FROM Project__c];
+        for (Project__c p : existingProjects) {
+            p.Construction_Start_Date__c = Date.today().addMonths(-5);
+            projectsForUpdate.put(p.Id, p);
         }
-
         // Run the batch
         Test.startTest();
-        Database.executeBatch(new LeaseTermStartConstructionBatch(termProjectIds), 30);
+        update projectsForUpdate.values();
+        Database.executeBatch(new LeaseTermStartConstructionBatch(projectsForUpdate.keySet()), 30);
         Test.stopTest();
 
         // Assert that payments due after the start of construction are terminated
-        List<Land_Owner_Payment__c> payments = [SELECT Id, Status__c, Due_Date_to_override__c FROM Land_Owner_Payment__c];
+        List<Land_Owner_Payment__c> payments = [SELECT Id, Status__c, Project__r.Construction_Start_Date__c, Due_Date__c FROM Land_Owner_Payment__c];
         for (Land_Owner_Payment__c payment : payments) {
-            if (payment.Due_Date_to_override__c != null && payment.Due_Date_to_override__c > Date.today().addDays(-5)) {
+            if (payment.Due_Date__c > payment.Project__r.Construction_Start_Date__c) {
                 System.assertEquals('Terminated', payment.Status__c, 'Payment should be terminated');
             } else {
                 System.assertNotEquals('Terminated', payment.Status__c, 'Payment should not be terminated');
@@ -107,24 +98,19 @@ public class LeaseTermStartConstructionBatchTest {
     static void testBatchExecutesOnTermUpdate() {
     
         // Update Terms to trigger the batch
-        List<Term__c> termsToUpdate = [SELECT Id, Start_of_Construction_Trigger__c, Start_of_Construction_Date__c
-                                        FROM Term__c];
-        for (Term__c term : termsToUpdate) {
-            term.Start_of_Construction_Trigger__c = true;
-            term.Start_of_Construction_Date__c = Date.today().addDays(-5);
+        List<Project__c> projectsToUpdate = [SELECT Id, Construction_Start_Date__c FROM Project__c];
+        for (Project__c p : projectsToUpdate) {
+            p.Construction_Start_Date__c = Date.today().addMonths(-5);
         }
     
         Test.startTest();
-            update termsToUpdate;
+            update projectsToUpdate;
         Test.stopTest();
-    
-        // Assert batch job execution
-        // System.assertEquals(1, Limits.getJobs(), 'Batch job should have been queued.');
-    
+        
         // Assert payment status updates
-        List<Land_Owner_Payment__c> payments = [SELECT Id, Status__c, Due_Date_to_override__c FROM Land_Owner_Payment__c];
+        List<Land_Owner_Payment__c> payments = [SELECT Id, Status__c, Due_Date__c, Project__r.Construction_Start_Date__c FROM Land_Owner_Payment__c];
         for (Land_Owner_Payment__c payment : payments) {
-            if (payment.Due_Date_to_override__c != null && payment.Due_Date_to_override__c > Date.today().addDays(-5)) {
+            if (payment.Due_Date__c > payment.Project__r.Construction_Start_Date__c) {
                 System.assertEquals('Terminated', payment.Status__c, 'Payment should be terminated');
             } else {
                 System.assertNotEquals('Terminated', payment.Status__c, 'Payment should not be terminated');
@@ -132,8 +118,7 @@ public class LeaseTermStartConstructionBatchTest {
         }
     }
     
-    // Test with a Term that has at least 200 future payments. Could expand this by having 30 Terms updating at once
-    // with 200 future payments each.
+
     @isTest
     static void testBatchExecutionUpdateBulk()
     {
@@ -153,26 +138,17 @@ public class LeaseTermStartConstructionBatchTest {
             );
             payments.add(payment);
         }
-        Term__c newTerm = new Term__c(
-            Name = 'Nuage Term Test',
-            Start_of_Construction_Trigger__c = false,
-            Start_of_Construction_Date__c = Date.today().addDays(-5),
-            Project__c = project.Id
-        );
-        insert newTerm;
+
 
         Test.startTest();
             insert payments;
             for (Land_Owner_Payment__c l : payments) {
                 paymentIds.add(l.Id);
             }
-            // Update Term to trigger Batch class
-            newTerm.Start_of_Construction_Trigger__c = true;
-            newTerm.Start_of_Construction_Date__c = Date.today().addDays(-10);
-            update newTerm;
+            project.Construction_Start_Date__c = Date.today().addMonths(-6);
+            update project;
         Test.stopTest();
-        
-        // All Payments should be terminated, because they are later than the Term's Construction Start Date
+
         for (Land_Owner_Payment__c lop : [SELECT Status__c FROM Land_Owner_Payment__c WHERE ID IN :paymentIds])
         {
             System.assertEquals('Terminated', lop.Status__c);

@@ -79,7 +79,7 @@ public with sharing class ProjectTeamController {
         List<Project_Team__c> projectTeamRecords = new List<Project_Team__c>();
         System.debug('projectTeamRecords.size(): ' + projectTeams.size());
         
-        System.debug('user: ' + [SELECT Name FROM User WHERE Id = :projectTeams[0].User__c]);
+        // System.debug('user: ' + [SELECT Name FROM User WHERE Id = :projectTeams[0].User__c]);
         
         for(Project_Team__c pt: projectTeams){
             Project__share projectShare = new Project__share(
@@ -153,13 +153,13 @@ public with sharing class ProjectTeamController {
         List<Project_Team__c> landAgentProjectTeams = new List<Project_Team__c>();
         for(Project_Team__c pt: projectTeams){
             if(pt.Role__c == 'Primary Developer'){
-                Project__c project = new Project__c(Id = pt.Project__c, Primary_Developer__c = '', Primary_Developer_is_set__c = false);
+                Project__c project = new Project__c(Id = pt.Project__c, Primary_Developer__c = null, Primary_Developer_is_set__c = false);
                 projects.add(project);
             } else if(pt.Role__c == 'Secondary Developer'){
-                Project__c project = new Project__c(Id = pt.Project__c,Secondary_Developer__c = '');
+                Project__c project = new Project__c(Id = pt.Project__c,Secondary_Developer__c = null);
                 projects.add(project);
             } else if(pt.Role__c == 'Director Lead'){
-                Project__c project = new Project__c(Id = pt.Project__c,Director_Lead__c = '',Primary_Developer_is_set__c = false);
+                Project__c project = new Project__c(Id = pt.Project__c,Director_Lead__c = null,Primary_Developer_is_set__c = false);
                 projects.add(project);
             } else if(pt.Role__c == 'Land Agent' && userToProfile.get(pt.User__c) == 'Land Agent'){
                 Project__c project = new Project__c(Id = pt.Project__c, External_Title_Specialist_is_set__c = false);

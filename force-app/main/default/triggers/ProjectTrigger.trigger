@@ -1,4 +1,4 @@
-trigger TermTrigger on Term__c (
+trigger ProjectTrigger on Project__c (
     before insert,
     before update,
     after insert,
@@ -7,5 +7,5 @@ trigger TermTrigger on Term__c (
     after delete,
     after undelete)
 {
-    // new TermTriggerHandler().run();
+    new ProjectTriggerHandler().run();
 }

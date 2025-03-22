@@ -48,7 +48,7 @@ public with sharing class projectTeam_insertLandAgentBatchClass implements Datab
         }
         // Insert
         if (!teamMembers.isEmpty()) insert teamMembers;
-        System.debug('inserted: ' + teamMembers.size());
+        System.debug('inserted: ' + teamMembers.size() + ' Land agent team members');
         
         
     }

@@ -224,18 +224,186 @@ public with sharing class ProjectTeamControllerTest {
     }
 
     @isTest
-    static void testProjectTeamDelete() {
-        // Retrieve test data
-        List<Project_Team__c> projectTeams = [SELECT Id, Project__c, User__c, Role__c FROM Project_Team__c];
+    static void testProjectTeamDeleteLeadDev() {
+        Id sysAdminId = [SELECT Id FROM Profile WHERE Name = 'System Administrator' LIMIT 1].Id;
+        // Insert new Internal User who is Lead Develoepr
+        User leadDev = new User(
+            FirstName = 'InternalNuage',
+            LastName = 'NuageUser5',
+            Email = 'scoutteam@email.com',
+            Username = 'internaluser+' + System.currentTimeMillis() + '@email.com',
+            Alias = 'int1',
+            ProfileId = sysAdminId,
+            TimeZoneSidKey = 'America/Los_Angeles',
+            LocaleSidKey = 'en_US',
+            EmailEncodingKey = 'UTF-8',
+            LanguageLocaleKey = 'en_US'
+        );
+        insert leadDev;
+
+        Project__c project = new Project__c(
+            Project_Technology_Type__c = 'Solar',
+            Name = 'Nuage Test Project: ' + String.valueOf(Crypto.getRandomInteger())
+        );
+        insert project;
+
+        // Create test project team records
+        List<Project_Team__c> projectTeams = new List<Project_Team__c>();
+
+        Project_Team__c primaryDevTeam = new Project_Team__c(
+            Project__c = project.Id,
+            User__c = leadDev.Id,
+            Role__c = 'Primary Developer'
+        );
+        projectTeams.add(primaryDevTeam);
+        insert primaryDevTeam;
+
+        Project__c preAssertProject = [
+            SELECT Primary_Developer__c, Secondary_Developer__c, Director_Lead__c
+            FROM Project__c WHERE Id = :project.Id LIMIT 1
+        ];
         
-        // Run the projectTeam_delete method
+        // Pre asserts
+        System.assertEquals(leadDev.Id, preAssertProject.Primary_Developer__c);
+
+        
+        Test.startTest();
+            ProjectTeamController.projectTeam_delete(projectTeams);
+        Test.stopTest();
+        
+        delete primaryDevTeam;
+
+        Project__c assertProj = [
+            SELECT Primary_Developer__c, Secondary_Developer__c, Director_Lead__c
+            FROM Project__c 
+            WHERE Id = :project.Id LIMIT 1
+        ];
+
+        System.assertEquals(null, assertProj.Primary_Developer__c);
+        System.assertEquals(0, [SELECT COUNT() FROM Project_Team__c WHERE Project__c = :project.Id]);
+    }
+
+    @isTest
+    static void testProjectTeamDeleteSecondaryDev() {
+        Id sysAdminId = [SELECT Id FROM Profile WHERE Name = 'System Administrator' LIMIT 1].Id;
+        
+        // Insert new Internal User who is Secondary Developer
+        User secondaryDev = new User(
+            FirstName = 'SecondaryDev',
+            LastName = 'SecondaryName',
+            Email = 'secondarydev@email.com',
+            Username = 'secondarydev+' + System.currentTimeMillis() + '@email.com',
+            Alias = 'int2',
+            ProfileId = sysAdminId,
+            TimeZoneSidKey = 'America/Los_Angeles',
+            LocaleSidKey = 'en_US',
+            EmailEncodingKey = 'UTF-8',
+            LanguageLocaleKey = 'en_US'
+        );
+        insert secondaryDev;
+
+
+        Project__c project = new Project__c(
+            Project_Technology_Type__c = 'Solar',
+            Name = 'Nuage Test Project: ' + String.valueOf(Crypto.getRandomInteger())
+        );
+        insert project;
+
+        // Create test project team records
+        List<Project_Team__c> projectTeams = new List<Project_Team__c>();
+
+        Project_Team__c secondaryDevTeam = new Project_Team__c(
+            Project__c = project.Id,
+            User__c = secondaryDev.Id,
+            Role__c = 'Secondary Developer'
+        );
+        projectTeams.add(secondaryDevTeam);
+        insert secondaryDevTeam;
+
+        Project__c preAssertProject = [
+            SELECT Primary_Developer__c, Secondary_Developer__c, Director_Lead__c
+            FROM Project__c WHERE Id = :project.Id LIMIT 1
+        ];
+        
+        // Pre asserts
+        System.assertEquals(secondaryDev.Id, preAssertProject.Secondary_Developer__c);
+
+        
         Test.startTest();
         ProjectTeamController.projectTeam_delete(projectTeams);
         Test.stopTest();
         
-        // Assert that Project__Share records are deleted as expected
-        List<Project__Share> projectShares = [SELECT Id FROM Project__Share];
-        //System.assertEquals(0, projectShares.size(), 'All Project__Share records should be deleted.');
+        delete secondaryDevTeam;
+
+        Project__c assertProj = [
+            SELECT Primary_Developer__c, Secondary_Developer__c, Director_Lead__c
+            FROM Project__c 
+            WHERE Id = :project.Id LIMIT 1
+        ];
+
+        System.assertEquals(null, assertProj.Secondary_Developer__c);
+        System.assertEquals(0, [SELECT COUNT() FROM Project_Team__c WHERE Project__c = :project.Id]);
+    }
+
+    @isTest
+    static void testProjectTeamDeleteDirectorLead() {
+        Id sysAdminId = [SELECT Id FROM Profile WHERE Name = 'System Administrator' LIMIT 1].Id;
+
+        // Insert new Internal User who is Director Lead
+        User directorLead = new User(
+            FirstName = 'DirectorLead',
+            LastName = 'DirectorName',
+            Email = 'directorlead@email.com',
+            Username = 'directorlead+' + System.currentTimeMillis() + '@email.com',
+            Alias = 'int3',
+            ProfileId = sysAdminId,
+            TimeZoneSidKey = 'America/Los_Angeles',
+            LocaleSidKey = 'en_US',
+            EmailEncodingKey = 'UTF-8',
+            LanguageLocaleKey = 'en_US'
+        );
+        insert directorLead;
+
+        Project__c project = new Project__c(
+            Project_Technology_Type__c = 'Solar',
+            Name = 'Nuage Test Project: ' + String.valueOf(Crypto.getRandomInteger())
+        );
+        insert project;
+
+        List<Project_Team__c> projectTeams = new List<Project_Team__c>();
+
+        Project_Team__c directorLeadTeam = new Project_Team__c(
+            Project__c = project.Id,
+            User__c = directorLead.Id,
+            Role__c = 'Director Lead'
+        );
+
+        projectTeams.add(directorLeadTeam);
+        insert directorLeadTeam;
+
+
+        Project__c preAssertProject = [
+            SELECT Primary_Developer__c, Secondary_Developer__c, Director_Lead__c
+            FROM Project__c WHERE Id = :project.Id LIMIT 1
+        ];
+        
+        // Pre asserts
+        System.assertEquals(directorLead.Id, preassertProject.Director_Lead__c);
+
+        Test.startTest();
+        ProjectTeamController.projectTeam_delete(projectTeams);
+        Test.stopTest();
+        
+        delete directorLeadTeam;
+
+        Project__c assertProj = [
+            SELECT Primary_Developer__c, Secondary_Developer__c, Director_Lead__c
+            FROM Project__c 
+            WHERE Id = :project.Id LIMIT 1
+        ];
+
+        System.assertEquals(null, assertProj.Director_Lead__c);
+        System.assertEquals(0, [SELECT COUNT() FROM Project_Team__c WHERE Project__c = :project.Id]);
     }
 
     @isTest
@@ -305,12 +473,23 @@ public with sharing class ProjectTeamControllerTest {
         // Create necessary test data
         Account testAccount = new Account(Name = 'Test Account');
         insert testAccount;
+
         
         Project__c testProject = new Project__c(Name = 'Test Project');
         insert testProject;
-
+        
         User landAgentUser = createUser('Land Agent');
         insert landAgentUser;
+
+        User internalUser = createUser('Standard User');
+        internalUser.FirstName = 'Roxanne';
+        internalUser.LastName = 'Huffine';
+        internalUser.Email = 'roxanne@test.com';
+        insert internalUser;
+
+        // Create a Contact record owned by Land Agent
+        Contact con = new Contact(AccountId = testAccount.Id, FirstName = 'Test', LastName = 'Contact', OwnerId = landAgentUser.Id);
+        insert con;
 
         Project_Team__c testProjectTeam = new Project_Team__c(
             Project__c = testProject.Id,
@@ -329,6 +508,7 @@ public with sharing class ProjectTeamControllerTest {
         List<Project_Team__c> projectTeams = [SELECT Id, Project__c, User__c FROM Project_Team__c WHERE Role__c = 'Land Agent'];
         Id projUserId = projectTeams[0].User__c;
         Id projId = projectTeams[0].Project__c;
+        
         List<Project__share> initialShares = [SELECT Id FROM Project__share WHERE ParentId = :projUserId];
         insert initialShares;
         
@@ -345,11 +525,26 @@ public with sharing class ProjectTeamControllerTest {
         List<Project__share> shares = [SELECT Id FROM Project__share WHERE ParentId = :projId AND UserOrGroupId = :projUserId];
         System.assertEquals(0, shares.size(), 'All project share records should be deleted.');
 
+        Contact assertCon = [SELECT Id, OwnerId FROM Contact WHERE Id = :con.Id LIMIT 1];
+        User newOwner = [SELECT Id, Name FROM User WHERE Id = :assertCon.OwnerId LIMIT 1];
+
+        // Child Contact owned by revoked User should be reassigned to Roxanne
+        System.assertEquals(newOwner.Id, assertCon.OwnerId);
+        
         // Verify that AccountTeamMember records are deleted
         List<AccountTeamMember> teamMembers = [SELECT Id FROM AccountTeamMember WHERE UserId = :projUserId];
         System.assertEquals(0, teamMembers.size(), 'All account team member records should be deleted.');
     }
 
+    // Test nothing happens when AMD handler is sent an empty map
+    @IsTest
+    static void testAccountMemberDeletionEmpty()
+    {
+        Id uId = UserInfo.getUserId();
+        Map<Id, List<sObject>> emptyMap = new Map<Id, List<sObject>>();
+
+        AccountTeamMemberDeletionHandler.deleteAccountTeamMembers(emptyMap, uId);
+    }
 
 
     static User createUser(String profileName) {

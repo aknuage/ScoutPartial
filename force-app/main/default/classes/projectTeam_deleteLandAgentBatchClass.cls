@@ -17,7 +17,7 @@ public with sharing class projectTeam_deleteLandAgentBatchClass implements Datab
         List<Project__share> deleteProjectShareRecords = [SELECT Id, ParentId FROM Project__share WHERE ParentId =: projectTeamRecords[0].Project__c AND UserOrGroupId = :projectTeamRecords[0].User__c];
 
         if(deleteProjectShareRecords.size() > 0) delete deleteProjectShareRecords;
-        System.debug('deleted proj shares: ' + deleteProjectShareRecords.size());
+
         List<Account_Project__c> accountProjects = [SELECT Id, Account__c, Project__c FROM Account_Project__c WHERE Project__c = :projectTeamRecords[0].Project__c];
 
         Set<Id> AccountIds = new Set<Id>();
@@ -27,15 +27,60 @@ public with sharing class projectTeam_deleteLandAgentBatchClass implements Datab
 
         List<AccountTeamMember> teamMembersToDelete = [SELECT Id FROM AccountTeamMember WHERE AccountId IN :AccountIds AND UserId = :projectTeamRecords[0].User__c];
         
-        if (!teamMembersToDelete.isEmpty()) delete teamMembersToDelete;
-        System.debug('deleted number of account team members: ' + teamMembersToDelete.size());
+        if (!teamMembersToDelete.isEmpty()) 
+        {
+            // delete teamMembersToDelete;
+            if (!AccountIds.isEmpty()) {
+                Map<Id, List<sObject>> accountChildren = checkChildObjects(AccountIds, userId);
+                if (!accountChildren.isEmpty()) {
+                    // Ensures access is preserved before deleting Account Team Members
+                    AccountTeamMemberDeletionHandler.deleteAccountTeamMembers(accountChildren, userId);
+                } else {
+                    delete teamMembersToDelete;
+                }
+            }
+        }
 
         List<AccountShare> accountShares = [SELECT Id FROM AccountShare WHERE AccountId IN :AccountIds AND UserOrGroupId = :projectTeamRecords[0].User__c];
-        if(accountShares.size() > 0) delete accountShares;
-        
+        if(accountShares.size() > 0) 
+        {
+            // Force delete and recalculate shares for Accounts with Child Objects
+            delete accountShares;
+        }
     }
-    public void finish(Database.BatchableContext info) {
+
+    public void finish(Database.BatchableContext info) {}
+
+    private Map<Id, List<sObject>> checkChildObjects(Set<Id> accountIds, Id ownerUserId)
+    {
+        Map<Id, List<sObject>> resultMap = new Map<Id, List<sObject>>();
         
+        List<Account> accounts = [SELECT Id,
+                (SELECT Id, OwnerId FROM Opportunities LIMIT 1),
+                (SELECT Id, OwnerId  FROM Contacts LIMIT 1),
+                (SELECT Id, OwnerId FROM Cases LIMIT 1)
+            FROM Account
+            WHERE Id IN :accountIds];
+
+        // Boolean hasOpportunities = !a.Opportunities.isEmpty();
+        // Boolean hasContacts = !a.Contacts.isEmpty();
+        // Boolean hasCases = !a.Cases.isEmpty();
+        
+        for (Account a : accounts)
+        {
+            for (Contact c : a.Contacts)
+            {
+                if (c.OwnerId == ownerUserId)
+                {
+                    if (!resultMap.containsKey(a.Id))
+                    {
+                        resultMap.put(a.Id, new List<sObject>());
+                    }
+                    resultMap.get(a.Id).add(c);
+                }
+            }
+        }
+        return resultMap;
     }
 }
 
